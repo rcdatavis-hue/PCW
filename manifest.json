@@ -25,9 +25,36 @@
     {
       "action": "./index.html",
       "accept": {
-        "application/pcw": [".pcw"],
-        "application/json": [".json"]
+        "application/pcw": [".pcw"]
       }
+    }
+  ],
+  "protocol_handlers": [
+    {
+      "protocol": "web+pcw",
+      "url": "./index.html?pcw_url=%s"
+    }
+  ],
+  "share_target": {
+    "action": "./share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "file",
+          "accept": ["application/pcw", ".pcw"]
+        }
+      ]
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "New Quote",
+      "short_name": "New",
+      "description": "Start a new costing quote",
+      "url": "./index.html?action=new",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     }
   ],
   "categories": ["business", "finance", "productivity"]
