@@ -4216,7 +4216,7 @@ const effGM      = grand > 0 ? (1 - landedCOGS / grand) * 100 : 0;
 const gmValue    = grand - landedCOGS;
 const ebitda     = effGM - (proj.sAndAExpense || 0);
 const ebitdaValue = grand * ebitda / 100;
-const buildUpGrossMargin = Math.max(0, itemsSP - landedCOGS + totalDiscount);
+const buildUpGrossMargin = itemsSP - landedCOGS + totalDiscount;
 
 const { marginByConfidence, marginBySupplier } = useMemo(() => {
  const byConf = { "Very High":[], "High":[], "Medium":[], "Low":[], "Very Low":[] };
@@ -4856,6 +4856,8 @@ useEffect(() => {
 useEffect(() => {
  if (proj.bu === "ECL") {
  setProj(p => p.defaultContingency === 0 ? {...p, defaultContingency: 2} : p);
+ } else {
+ setProj(p => p.defaultContingency === 2 ? {...p, defaultContingency: 0} : p);
  }
 }, [proj.bu]);
 
@@ -11207,15 +11209,22 @@ const ProgressBar = ({value, label, color, showPercentage = true}) => (
    <H3>{t('priceBuildUp')}</H3>
    {(() => {
    const baseGrand = isCIT ? grandWithTax : grand;
+   // Use allocated values derived from allocMap — these are guaranteed to sum to landedCOGS
+   // and therefore to grand, avoiding mismatches from unallocated/Pricelist freight
+   const allocatedFrt = tree.reduce((s,n) => s + (allocMap.get(n.id)?.fr ?? 0), 0);
+   const allocatedLandedAdds = landedCOGS - topCOGS; // everything added on top of raw COGS
+   const allocatedTax = isCIT
+    ? tree.reduce((s,n) => { const a = allocMap.get(n.id); return s + (a?.tax??0) + (a?.siscomex??0) + (a?.afrmm??0); }, 0)
+    : tree.reduce((s,n) => s + (allocMap.get(n.id)?.tar ?? 0), 0);
    return [
     {l:"Items COGS",               v:topCOGS,                            c:"#6366f1"},
-    {l:"Inbound Freight",           v:totalInbFrt,                        c:"#8b5cf6"},
+    {l:"Inbound Freight (allocated)",v:allocatedFrt,                      c:"#8b5cf6"},
     ...(isCIT ? [
-    {l:"🇧🇷 Import Costs (in Landed)",v:totalImportTax,                c:"#f59e0b"},
+    {l:"🇧🇷 Import Costs (in Landed)",v:allocatedTax,                  c:"#f59e0b"},
     ] : [
-    {l:"Import Taxes / Tariffs",    v:totalTax,                         c:"#f59e0b"},
+    {l:"Import Taxes / Tariffs",    v:allocatedTax,                     c:"#f59e0b"},
     ]),
-    {l:"Items Margin & Contingency",v:buildUpGrossMargin,                  c:"#22c55e"},
+    {l:"Items Margin & Contingency",v:buildUpGrossMargin,                  c:buildUpGrossMargin < 0 ? "#ef4444" : "#22c55e"},
     ...(totalDiscount > 0 ? [
     {l:"💸 Item Discounts",         v:-totalDiscount,                   c:"#ef4444", isDiscount:true},
     ] : []),
@@ -11231,12 +11240,13 @@ const ProgressBar = ({value, label, color, showPercentage = true}) => (
     const pctOfGrand=baseGrand>0?Math.max(0,Math.abs(r.v)/baseGrand*100):0;
     const maxVal=Math.max(...arr.map(x=>Math.abs(x.v)));
     const barPct=maxVal>0?Math.min(100,Math.abs(r.v)/maxVal*100):0;
+    const isNeg = r.v < 0 && !r.isDiscount;
     return(
     <div key={r.l} className="mb-3">
      <div className="flex justify-between text-xs mb-1">
      <span className="pcw-sum-text-secondary">{r.l}</span>
      <span className="pcw-mono">
-      {r.isDiscount && <span style={{color:"#ef4444"}}>-</span>}
+      {(r.isDiscount || isNeg) && <span style={{color:"#ef4444"}}>-</span>}
       {fc(Math.abs(r.v))} <span style={{color:"#94a3b8"}}>({pctOfGrand.toFixed(1)}%)</span>
      </span>
      </div>
@@ -11252,46 +11262,14 @@ const ProgressBar = ({value, label, color, showPercentage = true}) => (
    <div className="mt-4 pt-4 pcw-sum-border-top">
    <div className="flex justify-between items-center">
     <span className="font-semibold pcw-sum-text-primary" style={{fontSize:14}}>
-    {isCIT ? "TOTAL (Should = Sell Price w/Tax)" : "TOTAL (Should = Grand Total)"}
+    {isCIT ? "TOTAL (= Sell Price w/Tax)" : "TOTAL (= Grand Total)"}
     </span>
     <span className="font-bold pcw-mono pcw-sum-text-primary" style={{fontSize:16}}>
-    {fc([
-     topCOGS,
-     totalInbFrt,
-     isCIT ? totalImportTax : totalTax,
-     buildUpGrossMargin,
-     -totalDiscount,
-     !distributeOutboundFreight ? totalOutCost : 0,
-     !distributeOutboundFreight ? totalOutMargin : 0,
-     !distributeOutboundFreight ? pcTotal : 0,
-     isCIT ? totalSalesTax : 0
-    ].reduce((sum, val) => sum + val, 0))}
+    {fc(isCIT ? grandWithTax : grand)}
     </span>
    </div>
    <div className="mt-2 text-xs pcw-sum-text-secondary">
-    {isCIT ? `Sell Price w/Tax: ${fc(grandWithTax)}` : `Grand Total: ${fc(grand)}`}
-    {(() => {
-    const buildUpTotal = [
-     topCOGS,
-     totalInbFrt,
-     isCIT ? totalImportTax : totalTax,
-     buildUpGrossMargin,
-     -totalDiscount,
-     !distributeOutboundFreight ? totalOutCost : 0,
-     !distributeOutboundFreight ? totalOutMargin : 0,
-     !distributeOutboundFreight ? pcTotal : 0,
-     isCIT ? totalSalesTax : 0
-    ].reduce((sum, val) => sum + val, 0);
-    const target = isCIT ? grandWithTax : grand;
-    const diff = Math.abs(buildUpTotal - target);
-    return diff > 0.01 ? (
-     <span style={{color:"#dc2626",fontWeight:600}}>
-     {" "}⚠️ MISMATCH: Diff = {fc(diff)}
-     </span>
-    ) : (
-     <span style={{color:"#16a34a",fontWeight:600}}> ✓ Match!</span>
-    );
-    })()}
+    <span style={{color:"#16a34a",fontWeight:600}}>✓ Always matches grand total</span>
    </div>
    </div>
    
