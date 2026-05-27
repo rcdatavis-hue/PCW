@@ -83,22 +83,13 @@ const outputFile = path.join(tmpDir, 'pcw-tw-output.css');
 const configFile = path.join(tmpDir, 'pcw-tw-config.js');
 
 try {
-  // Extract all class names
-  const classMatches = html.match(/class(?:Name)?=["'`]([^"'`]+)["'`]/g) || [];
-  const allClasses = new Set();
-  classMatches.forEach(function(m) {
-    const vals = m.replace(/class(?:Name)?=["'`]/, '').replace(/["'`]$/, '');
-    vals.split(/\s+/).forEach(function(c) { if (c) allClasses.add(c); });
-  });
-
-  const scanContent = '<html><body class="' + Array.from(allClasses).join(' ') + '"></body></html>';
-  fs.writeFileSync(scanFile, scanContent);
-
+  // Scan the original source file for Tailwind classes (before compilation, catches all patterns)
+  const sourceFile = INPUT.replace('index.html', 'index.html'); // use INPUT path
   const twInput = '@tailwind base;\n@tailwind components;\n@tailwind utilities;\n';
   fs.writeFileSync(inputFile, twInput);
 
-  const escapedScan = scanFile.replace(/\\/g, '\\\\');
-  const twConfig = 'module.exports={content:["' + escapedScan + '"],theme:{extend:{}},plugins:[]};';
+  const escapedSource = INPUT.replace(/\\/g, '\\\\');
+  const twConfig = 'module.exports={content:["' + escapedSource + '"],theme:{extend:{}},plugins:[]};';
   fs.writeFileSync(configFile, twConfig);
 
   const twBin = path.join(__dirname, 'node_modules', '.bin', 'tailwindcss');
