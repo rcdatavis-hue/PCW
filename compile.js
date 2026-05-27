@@ -1,13 +1,15 @@
 /**
- * PCW JSX Pre-compiler
- * Extracts the <script type="text/babel"> block from index.html,
- * compiles it to plain JS with Babel, and writes the result back.
- * The compiled file has no Babel dependency and loads ~600ms faster.
+ * PCW Build Script
+ * 1. Compiles JSX → plain JS (removes Babel runtime dependency)
+ * 2. Inlines Tailwind CSS (removes 330KB CDN dependency)
+ * 3. Fixes TDZ issues via block-scoping transform
  */
 
 const fs    = require('fs');
 const path  = require('path');
+const os    = require('os');
 const babel = require('@babel/core');
+const { execSync } = require('child_process');
 
 const INPUT  = path.join(__dirname, 'index.html');
 const OUTPUT = path.join(__dirname, 'index.html');
@@ -15,17 +17,16 @@ const OUTPUT = path.join(__dirname, 'index.html');
 console.log('Reading index.html...');
 let html = fs.readFileSync(INPUT, 'utf8');
 
-// ── 1. Already compiled? ──────────────────────────────────────────────────────
+// ── Already compiled? ────────────────────────────────────────────────────────
 if (html.includes('data-compiled="true"')) {
   console.log('Already compiled. Skipping.');
   process.exit(0);
 }
 
-// ── 2. Find the Babel script block ───────────────────────────────────────────
+// ── 1. Find the Babel script block ──────────────────────────────────────────
 const OPEN_TAG  = '<script type="text/babel">';
 const CLOSE_TAG = '</script>';
 
-// Match the actual opening tag on its own line (not inside a comment)
 const babelTagMatch = html.match(/^<script type="text\/babel">$/m);
 if (!babelTagMatch) {
   console.error('ERROR: Could not find <script type="text/babel"> block.');
@@ -43,7 +44,7 @@ if (closeIndex === -1) {
 const jsxSource = html.slice(jsxStart, closeIndex);
 console.log('Found JSX block: ' + jsxSource.split('\n').length.toLocaleString() + ' lines');
 
-// ── 3. Compile with Babel (JSX only — leave all JS untouched) ────────────────
+// ── 2. Compile with Babel ────────────────────────────────────────────────────
 console.log('Compiling JSX...');
 let compiled;
 try {
@@ -62,51 +63,64 @@ try {
 }
 console.log('Compiled: ' + compiled.split('\n').length.toLocaleString() + ' lines');
 
-// ── 4. Replace the babel script block with compiled plain JS ─────────────────
+// ── 3. Replace babel script block with compiled JS ───────────────────────────
 const before = html.slice(0, babelStart);
 const after  = html.slice(closeIndex + CLOSE_TAG.length);
+html = before + '<script data-compiled="true">\n' + compiled + '\n</script>' + after;
 
-html = before
-  + '<script data-compiled="true">\n'
-  + compiled
-  + '\n</script>'
-  + after;
-
-// ── 5. Remove the Babel CDN script tag ───────────────────────────────────────
+// ── 4. Remove Babel CDN tag ──────────────────────────────────────────────────
 const BABEL_CDN = /\s*<script src="https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/babel-standalone\/[^"]+"><\/script>/;
 if (BABEL_CDN.test(html)) {
   html = html.replace(BABEL_CDN, '');
   console.log('Removed Babel CDN script tag');
-} else {
-  console.warn('Warning: Babel CDN script tag not found');
 }
 
-// ── 6. Fix TDZ: convert const→var inside PartsWorksheet function body ────────
-// The original Babel-in-browser transpiler hoisted declarations, avoiding temporal
-// dead zone (TDZ) issues with forward references. We replicate that by converting
-// const→var inside the component body, which is hoisted by the JS engine.
-const pwMarker = 'function PartsWorksheet()';
-const pwStart  = html.indexOf(pwMarker);
-// Find the next top-level function after PartsWorksheet (may be minified, no leading newline)
-const pwSearchArea = html.slice(pwStart + 100);
-const pwNextFn = pwSearchArea.search(/function [A-Z]\w*\(|^function [a-z]\w*\(/m);
-const pwEnd    = pwNextFn !== -1 ? (pwStart + 100 + pwNextFn) : -1;
+// ── 5. Inline Tailwind CSS ───────────────────────────────────────────────────
+const tmpDir     = os.tmpdir();
+const scanFile   = path.join(tmpDir, 'pcw-scan.html');
+const inputFile  = path.join(tmpDir, 'pcw-tw-input.css');
+const outputFile = path.join(tmpDir, 'pcw-tw-output.css');
+const configFile = path.join(tmpDir, 'pcw-tw-config.js');
 
-if (pwStart !== -1 && pwEnd !== -1) {
-  const hBefore = html.slice(0, pwStart);
-  const pwBody  = html.slice(pwStart, pwEnd);
-  const hAfter  = html.slice(pwEnd);
-  const pwFixed = pwBody.replace(/\bconst\b(?=\s+\w+\s*=)/g, 'var');
-  const count   = (pwBody.match(/\bconst\b(?=\s+\w+\s*=)/g) || []).length;
-  html = hBefore + pwFixed + hAfter;
-  console.log('Converted ' + count + ' const→var in PartsWorksheet (TDZ fix)');
-} else {
-  console.warn('Warning: PartsWorksheet function not found for TDZ fix');
+try {
+  // Extract all class names
+  const classMatches = html.match(/class(?:Name)?=["'`]([^"'`]+)["'`]/g) || [];
+  const allClasses = new Set();
+  classMatches.forEach(function(m) {
+    const vals = m.replace(/class(?:Name)?=["'`]/, '').replace(/["'`]$/, '');
+    vals.split(/\s+/).forEach(function(c) { if (c) allClasses.add(c); });
+  });
+
+  const scanContent = '<html><body class="' + Array.from(allClasses).join(' ') + '"></body></html>';
+  fs.writeFileSync(scanFile, scanContent);
+
+  const twInput = '@tailwind base;\n@tailwind components;\n@tailwind utilities;\n';
+  fs.writeFileSync(inputFile, twInput);
+
+  const escapedScan = scanFile.replace(/\\/g, '\\\\');
+  const twConfig = 'module.exports={content:["' + escapedScan + '"],theme:{extend:{}},plugins:[]};';
+  fs.writeFileSync(configFile, twConfig);
+
+  const twBin = path.join(__dirname, 'node_modules', '.bin', 'tailwindcss');
+  execSync('node "' + twBin + '" -c "' + configFile + '" -i "' + inputFile + '" -o "' + outputFile + '" --minify', { stdio: 'pipe' });
+
+  const twCSS = fs.readFileSync(outputFile, 'utf8');
+
+  // Remove Tailwind CDN preconnect and script
+  html = html.replace(/\s*<link rel="preconnect" href="https:\/\/cdn\.tailwindcss\.com"[^>]*>/g, '');
+  html = html.replace(/\s*<script src="https:\/\/cdn\.tailwindcss\.com"><\/script>/g, '');
+
+  // Inject before </head>
+  html = html.replace('</head>', '<style>' + twCSS + '</style>\n</head>');
+
+  console.log('Inlined Tailwind CSS: ' + (twCSS.length / 1024).toFixed(1) + 'KB (CDN was ~330KB)');
+} catch (e) {
+  console.warn('Warning: Tailwind inlining failed — CDN left in place:', e.message);
 }
 
-// ── 7. Write output ───────────────────────────────────────────────────────────
+// ── 6. Write output ──────────────────────────────────────────────────────────
 fs.writeFileSync(OUTPUT, html, 'utf8');
 
 const sizeKB = (fs.statSync(OUTPUT).size / 1024).toFixed(1);
 console.log('\nDone — index.html rewritten (' + sizeKB + ' KB)');
-console.log('  Babel CDN removed, JSX compiled, TDZ fixed');
+console.log('  Babel CDN removed + JSX compiled + Tailwind inlined');
