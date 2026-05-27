@@ -23,7 +23,7 @@ jobs:
           node-version: '20'
 
       - name: Install Babel
-        run: npm install --save-dev @babel/core @babel/plugin-transform-react-jsx @babel/plugin-transform-block-scoping
+        run: npm install --save-dev @babel/core @babel/plugin-transform-react-jsx @babel/plugin-transform-block-scoping tailwindcss@3
 
       - name: Compile JSX
         run: node compile.js
