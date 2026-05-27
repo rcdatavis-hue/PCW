@@ -1,0 +1,41 @@
+name: Compile JSX
+
+on:
+  push:
+    paths:
+      - 'index.html'
+    branches:
+      - main
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Babel
+        run: npm install --save-dev @babel/core @babel/preset-react @babel/preset-env
+
+      - name: Compile JSX
+        run: node compile.js
+
+      - name: Commit compiled file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "ci: compile JSX [skip ci]"
+            git push
+          fi
