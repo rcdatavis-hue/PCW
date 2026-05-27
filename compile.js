@@ -48,26 +48,8 @@ console.log('Compiling JSX...');
 let compiled;
 try {
   const result = babel.transformSync(jsxSource, {
-    presets: [
-      ['@babel/preset-react', { runtime: 'classic' }],
-      ['@babel/preset-env', {
-        targets: { chrome: '90', edge: '90' },
-        modules: false,
-        // Keep modern JS — only transform JSX syntax
-        exclude: [
-          'transform-arrow-functions',
-          'transform-block-scoping',
-          'transform-classes',
-          'transform-destructuring',
-          'transform-parameters',
-          'transform-spread',
-          'transform-template-literals',
-          'transform-shorthand-properties',
-          'transform-computed-properties',
-          'transform-object-rest-spread',
-          'proposal-object-rest-spread',
-        ]
-      }]
+    plugins: [
+      ['@babel/plugin-transform-react-jsx', { runtime: 'classic' }],
     ],
     filename: 'pcw.jsx',
     sourceType: 'script',
