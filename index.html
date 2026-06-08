@@ -154,11 +154,17 @@ const MIGRATIONS = {
 
 const migrateData = (data) => {
 let schemaVer = typeof data.schemaVersion === 'number' ? data.schemaVersion : 0;
+// Normalise key names — files saved with 'proj' key must be aliased to 'project'
+// before migrations run, since migrations reference data.project
 let d = data;
+if (d.proj && !d.project) d = { ...d, project: d.proj };
+if (d.frt && !d.freight) d = { ...d, freight: d.frt };
+if (d.sched && !d.schedule) d = { ...d, schedule: d.sched };
 while (schemaVer < SCHEMA_VERSION) {
  if (MIGRATIONS[schemaVer]) d = MIGRATIONS[schemaVer](d);
  schemaVer++;
 }
+// Re-normalise back to short keys after migration
 return { ...d, schemaVersion: SCHEMA_VERSION };
 };
 
