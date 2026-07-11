@@ -1976,7 +1976,7 @@ var h=el.offsetHeight;if(h>4)setRowHeights(prev=>{var newRow=Math.round(h);if(ne
 useEffect(()=>{// Small delay to let the browser complete layout before measuring
 var t=setTimeout(measureRowHeight,50);return()=>clearTimeout(t);},[tab,isVirtual,measureRowHeight]);// ── End virtualisation setup ──────────────────────────────────────────────
 var partNumberFingerprint=useMemo(()=>items.map(i=>i.type!=='heading'?i.id+':'+(i.partNumber||''):'').join('|'),[items]);var duplicates=useMemo(()=>{var partCounts={};var dupes=new Set();items.filter(i=>i.type!=="heading"&&i.partNumber?.trim()).forEach(item=>{var pn=item.partNumber.trim().toUpperCase();if(!partCounts[pn]){partCounts[pn]=[];}partCounts[pn].push(item.id);});Object.entries(partCounts).forEach(([pn,ids])=>{if(ids.length>1){ids.forEach(id=>dupes.add(id));}});return{duplicateIds:dupes,duplicatePartNumbers:Object.entries(partCounts).filter(([pn,ids])=>ids.length>1).map(([pn,ids])=>({partNumber:pn,count:ids.length}))};},[partNumberFingerprint]);// eslint-disable-line react-hooks/exhaustive-deps
-var topCOGS=useMemo(()=>tree.reduce((s,n)=>s+n.totalCOGS,0),[tree]);var{totalInbFrt,siscomex,afrmm,outEntries,totalOutSP,totalOutCost,totalOutMargin,getAlloc,allocMap,spMap,netPriceMap,spTaxMap,quoteReadyMap,getItemSP,getItemNetPrice,getItemSPWithSalesTax,calculateReverseMargin,landedCOGS,itemsSP,grand,itemsSPWithTax,totalOutSPWithTax,grandWithTax,freightTaxSC,outboundFreightAllocations,packingCratingAllocations,pcActive,pcTotal,pcBaseSPs}=usePricingEngine({tree,items,frt,proj,brazilTaxes,brazilStates,isCIT,forceAllocToPricelist,forceAllocToZeroCost,distributeOutboundFreight});// P&C cost — only in cost+margin mode; pct/fixed modes treated as pure profit
+var topCOGS=useMemo(()=>tree.reduce((s,n)=>s+n.totalCOGS,0),[tree]);var{totalInbFrt,siscomex,afrmm,outEntries,totalOutSP,totalOutCost,totalOutMargin,getAlloc,allocMap,spMap,netPriceMap,spTaxMap,quoteReadyMap,getItemSP,getItemNetPrice,getItemSPWithSalesTax,calculateReverseMargin,landedCOGS,itemsSP,grand,itemsSPWithTax,totalOutSPWithTax,grandWithTax,freightTaxSC,outboundFreightAllocations,packingCratingAllocations,pcActive,pcTotal,pcBaseSPs}=usePricingEngine({tree,items,frt,proj,brazilTaxes,brazilStates,isCIT,forceAllocToPricelist,forceAllocToZeroCost,distributeOutboundFreight,distributePackingCrating});// P&C cost — only in cost+margin mode; pct/fixed modes treated as pure profit
 var pcCostSC=(pcActive&&(frt.packingCrating?.mode||'pct')==='cost')?conv(parseFloat(frt.packingCrating?.cost)||0,frt.packingCrating?.costCcy||'USD',proj.sellCcy,proj.rates):0;
 // effectiveCOGS includes outbound freight cost and P&C cost (when not distributed)
 var effectiveCOGS=landedCOGS+(distributeOutboundFreight?0:totalOutCost)+(distributePackingCrating?0:pcCostSC);
@@ -2871,26 +2871,18 @@ input:focus[data-cell],select:focus[data-cell]{box-shadow:0 0 0 2px rgba(59,130,
 .pcw-table-gridlines .pcw-table .pcw-row-d1 td,.pcw-table-gridlines .pcw-table .pcw-row-d2 td,.pcw-table-gridlines .pcw-table .pcw-row-d3 td{border-top:1px solid #94a3b8;border-bottom:1px solid #94a3b8;}
 [data-theme="dark"] .pcw-table-gridlines .pcw-table .pcw-row-d1 td,[data-theme="dark"] .pcw-table-gridlines .pcw-table .pcw-row-d2 td,[data-theme="dark"] .pcw-table-gridlines .pcw-table .pcw-row-d3 td{border-top-color:#475569;border-bottom-color:#475569;}
 /* Sub-BOM group boundary: dashed line ABOVE depth-1 sub-BOM parent, BELOW its last descendant */
-.pcw-table-gridlines .pcw-table tr.pcw-bom-sub-parent td{border-top:2px dashed #334155!important;}
-.pcw-table-gridlines .pcw-table tr.pcw-bom-sub-last td{border-bottom:2px dashed #334155!important;}
-.pcw-table-gridlines .pcw-table .pcw-row-d1:has(+.pcw-row-d0) td{border-bottom:2px dashed #334155!important;}
-[data-theme="dark"] .pcw-table-gridlines .pcw-table tr.pcw-bom-sub-parent td{border-top-color:#64748b!important;}
-[data-theme="dark"] .pcw-table-gridlines .pcw-table tr.pcw-bom-sub-last td{border-bottom-color:#64748b!important;}
-[data-theme="dark"] .pcw-table-gridlines .pcw-table .pcw-row-d1:has(+.pcw-row-d0) td{border-bottom-color:#64748b!important;}
-/* Close BOM group — thick bottom on last child before next item */
+.pcw-table-gridlines .pcw-table{--pcw-groupline-color:#475569;--pcw-subbom-color:#334155;}
+[data-theme="dark"] .pcw-table-gridlines .pcw-table{--pcw-groupline-color:#64748b;--pcw-subbom-color:#64748b;}
+.pcw-table-gridlines .pcw-table tr.pcw-bom-sub-parent td{background-image:repeating-linear-gradient(90deg,var(--pcw-subbom-color) 0,var(--pcw-subbom-color) 6px,transparent 6px,transparent 12px)!important;background-repeat:no-repeat!important;background-position:top left!important;background-size:100% 2px!important;}
+.pcw-table-gridlines .pcw-table tr.pcw-bom-sub-last td,
+.pcw-table-gridlines .pcw-table .pcw-row-d1:has(+.pcw-row-d0) td{background-image:repeating-linear-gradient(90deg,var(--pcw-subbom-color) 0,var(--pcw-subbom-color) 6px,transparent 6px,transparent 12px)!important;background-repeat:no-repeat!important;background-position:bottom left!important;background-size:100% 2px!important;}
+/* Close BOM group — thick bottom on last child before next item (box-shadow: doesn't add layout height, unlike border, so virtual-scroll row calibration stays accurate on large BOMs) */
 .pcw-table-gridlines .pcw-table .pcw-row-d1:has(+.pcw-row-d0) td,
 .pcw-table-gridlines .pcw-table .pcw-row-d2:has(+.pcw-row-d0) td,
-.pcw-table-gridlines .pcw-table .pcw-row-d3:has(+.pcw-row-d0) td{border-bottom:2px solid #475569;}
-[data-theme="dark"] .pcw-table-gridlines .pcw-table .pcw-row-d1:has(+.pcw-row-d0) td,
-[data-theme="dark"] .pcw-table-gridlines .pcw-table .pcw-row-d2:has(+.pcw-row-d0) td,
-[data-theme="dark"] .pcw-table-gridlines .pcw-table .pcw-row-d3:has(+.pcw-row-d0) td{border-bottom-color:#64748b;}
-/* Last BOM child before tfoot */
+.pcw-table-gridlines .pcw-table .pcw-row-d3:has(+.pcw-row-d0) td,
 .pcw-table-gridlines .pcw-table tbody tr.pcw-row-d1:last-child td,
 .pcw-table-gridlines .pcw-table tbody tr.pcw-row-d2:last-child td,
-.pcw-table-gridlines .pcw-table tbody tr.pcw-row-d3:last-child td{border-bottom:2px solid #475569;}
-[data-theme="dark"] .pcw-table-gridlines .pcw-table tbody tr.pcw-row-d1:last-child td,
-[data-theme="dark"] .pcw-table-gridlines .pcw-table tbody tr.pcw-row-d2:last-child td,
-[data-theme="dark"] .pcw-table-gridlines .pcw-table tbody tr.pcw-row-d3:last-child td{border-bottom-color:#64748b;}
+.pcw-table-gridlines .pcw-table tbody tr.pcw-row-d3:last-child td{box-shadow:inset 0 -2px 0 0 var(--pcw-groupline-color);}
 /* Note rows: match BOM inner line weight */
 .pcw-table-gridlines .pcw-table .pcw-note-row td{border-top:1px solid #94a3b8;border-bottom:1px solid #94a3b8;}
 [data-theme="dark"] .pcw-table-gridlines .pcw-table .pcw-note-row td{border-top-color:#475569;border-bottom-color:#475569;}
