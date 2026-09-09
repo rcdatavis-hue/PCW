@@ -2464,12 +2464,12 @@ var itemRowColor=rowColors?.[n.id]||null;var effectiveCcClass=itemRowColor?'':cc
   <td class="center">${n.qty}</td>
   <td class="right mono">${fc(n.unitCost)} ${n.ccy||ccy}</td>
   <td class="right mono">${fc(n.totalCOGS)}</td>
-  <td class="right mono">${isRoot?`<strong>${fc(a.landed)}</strong>`:pdfDash}</td>
+  <td class="right mono" style="${isRoot?'color:#1d4ed8;':''}">${isRoot?`<strong>${fc(a.landed)}</strong>`:pdfDash}</td>
   <td class="center">${isRoot?(n.margin||0)+'%':pdfDash}</td>
   <td class="center">${isRoot?(n.contingency||0)+'%':dash}</td>
   <td class="center">${(n.tariff||0)>0?(n.tariff||0)+'%':pdfDash}</td>
-  <td class="right mono">${isRoot?fc(sp):dash}</td>
-  <td class="right mono">${isRoot?fc(sp*(n.qty||1)):dash}</td>
+  <td class="right mono" style="${isRoot?'color:#a78bfa;':''}">${isRoot?fc(sp):dash}</td>
+  <td class="right mono" style="${isRoot?'color:#16a34a;':''}">${isRoot?fc(sp*(n.qty||1)):dash}</td>
   <td class="center">${isRoot?(n.discount||0)+'%':dash}</td>
   <td class="right mono">${isRoot?`<strong>${fc(netPrice)}</strong>`:pdfDash}</td>
   ${isCIT?`<td class="right mono cit-col">${isRoot&&spWithTax?fc(spWithTax):dash}</td><td class="right mono cit-col">${isRoot&&netWithTax?`<strong>${fc(netWithTax)}</strong>`:dash}</td>`:''}
