@@ -89,7 +89,7 @@
 /* Everything below is pure JS — no Babel/JSX needed, no size limit applies. */
 /* React components start in the <script type="text/babel"> block below.     */
 
-const PCW_VERSION = 'v0.8';
+const PCW_VERSION = 'v0.8.1';
 const PCW_BUILD = '2026-11-25';
 
 const sanitizeHTML = (val) => {
@@ -3304,14 +3304,14 @@ if ('serviceWorker' in navigator) {
 window.__pcwLaunchFile = null;
 window.__pcwLaunchCallback = null; // React registers this once mounted
 
-// Protocol handler — pcw://open?ref=Q-2025-001 opens the app with that context
+// Protocol handler — web+pcw://open?ref=Q-2025-001 opens the app with that context (registered in manifest.json; plain pcw:// also accepted)
 // The URL is passed via window.location when launched via protocol
 window.__pcwProtocolData = null;
 (function() {
  const url = new URL(window.location.href);
  // When launched via protocol handler, Chrome passes the pcw:// URL as a query param
  const pcwUrl = url.searchParams.get('pcw_url') || url.searchParams.get('url');
- if (pcwUrl && pcwUrl.startsWith('pcw://')) {
+ if (pcwUrl && /^(web\+)?pcw:\/\//i.test(pcwUrl)) {
   try {
    const pcwParsed = new URL(pcwUrl);
    const params = Object.fromEntries(pcwParsed.searchParams.entries());
